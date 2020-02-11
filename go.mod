@@ -1,1 +1,1 @@
-module github.com/liping86/snshttp
+module github.com/kenjenkins/snshttp
