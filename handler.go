@@ -23,12 +23,6 @@ type handler struct {
 	credentials *authOption
 }
 
-type message interface {
-	getSignature() string
-	getSigningCertURL() string
-	SigningString() string
-}
-
 // New creates a http.Handler for receiving webhooks from an Amazon SNS
 // subscription and dispatching them to the EventHandler. Options are applied
 // in the order they're provided and may clobber previous options.
@@ -125,9 +119,7 @@ func readEvent(reader io.Reader, event message) error {
 		return err
 	}
 
-	err = Verify(
-		event.getSignature(), event.getSigningCertURL(), event.SigningString())
-	if err != nil {
+	if err = Verify(event); err != nil {
 		return err
 	}
 

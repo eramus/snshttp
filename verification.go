@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -17,6 +18,13 @@ var hostPattern = regexp.MustCompile(`^sns\.[a-zA-Z0-9\-]{3,}\.amazonaws\.com(\.
 // Cache the most recently seen certificate.
 var certCache = make(map[string]*x509.Certificate)
 var certCacheMutex = sync.RWMutex{}
+
+type message interface {
+	getSignatureVersion() string
+	getSignature() string
+	getSigningCertURL() string
+	SigningString() string
+}
 
 func getCertificate(signingCertURL string) (*x509.Certificate, error) {
 	// Check for a cached certificate first.
@@ -80,12 +88,18 @@ func verifyCertURL(signingCertURL string) error {
 }
 
 // Verifies that a payload came from SNS.
-func Verify(signingSignature, signingCertURL, calSignature string) error {
+func Verify(m message) error {
+	version := m.getSignatureVersion()
+	if version != "1" {
+		return fmt.Errorf("unsupported signature version %q", version)
+	}
+
+	signingCertURL := m.getSigningCertURL()
 	if err := verifyCertURL(signingCertURL); err != nil {
 		return err
 	}
 
-	payloadSignature, err := base64.StdEncoding.DecodeString(signingSignature)
+	payloadSignature, err := base64.StdEncoding.DecodeString(m.getSignature())
 	if err != nil {
 		return err
 	}
@@ -96,5 +110,5 @@ func Verify(signingSignature, signingCertURL, calSignature string) error {
 	}
 
 	return cert.CheckSignature(
-		x509.SHA1WithRSA, []byte(calSignature), payloadSignature)
+		x509.SHA1WithRSA, []byte(m.SigningString()), payloadSignature)
 }
