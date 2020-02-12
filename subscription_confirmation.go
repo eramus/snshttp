@@ -12,16 +12,9 @@ import (
 // request to SubscribeURL will finish the handshake and enable Amazon to send
 // Notifications to the webhook.
 type SubscriptionConfirmation struct {
-	Type      string
-	MessageID string `json:"MessageId"`
-	TopicARN  string `json:"TopicArn"`
-	Timestamp string `json:"Timestamp"`
-
-	Token          string `json:"Token"`
-	Message        string `json:"Message"`
-	SubscribeURL   string `json:"SubscribeURL"`
-	Signature      string `json:"Signature"`
-	SigningCertURL string `json:"SigningCertURL"`
+	BaseMessage
+	Token        string
+	SubscribeURL string
 }
 
 // Confirm finishes the handshake with Amazon, confirming that the subscription

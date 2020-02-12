@@ -27,7 +27,7 @@ snsHandler := snshttp.New(&EventHandler{},
   snshttp.WithAuthentication("sns", "password"),
 )
 
-http.Handler("/hooks/sns", snsHandler)
+http.Handle("/hooks/sns", snsHandler)
 ```
 
 ## Double Requests

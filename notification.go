@@ -11,20 +11,16 @@ import (
 // Notification events are sent for messages that are published to the SNS
 // topic.
 type Notification struct {
-	Type           string
-	MessageID      string `json:"MessageId"`
-	TopicARN       string `json:"TopicArn"`
-	Subject        string `json:"Subject"`
-	Message        string `json:"Message"`
-	Timestamp      string `json:"Timestamp"`
-	UnsubscribeURL string `json:"UnsubscribeURL"`
-	Signature      string `json:"Signature"`
-	SigningCertURL string `json:"SigningCertURL"`
+	BaseMessage
+	Subject        string
+	UnsubscribeURL string
 
 	// MessageAttributes contain any attributes added to the message when
 	// publishing it to SNS. This is most commonly used when transmitting binary
-	// date (using raw message delivery).
-	MessageAttributes map[string]MessageAttribute `json:"MessageAttributes"`
+	// data (using raw message delivery).
+	//
+	// Note that message attributes are not part of the content signed by AWS.
+	MessageAttributes map[string]MessageAttribute
 }
 
 // Unsubscribe will notify Amazon to remove this subscription from the SNS
@@ -70,8 +66,8 @@ func (e *Notification) SigningString() string {
 }
 
 type MessageAttribute struct {
-	Type  string `json:"Type"`
-	Value string `json:"Value"`
+	Type  string
+	Value string
 }
 
 func (m MessageAttribute) StringValue() string {

@@ -11,16 +11,9 @@ import (
 // via the API. No unsubscribe event is fired when deleting a subscription
 // through the AWS web console.
 type UnsubscribeConfirmation struct {
-	Type      string 
-	MessageID string `json:"MessageId"`
-	TopicARN  string `json:"TopicArn"`
-	Timestamp string `json:"Timestamp"`
-
-	Token          string `json:"Token"`
-	Message        string `json:"Message"`
-	SubscribeURL   string `json:"SubscribeURL"`
-	Signature      string `json:"Signature"`
-	SigningCertURL string `json:"SigningCertURL"`
+	BaseMessage
+	Token        string
+	SubscribeURL string
 }
 
 // Resubscribe notifies Amazon to reinstate the subscription. A request is made
