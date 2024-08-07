@@ -33,7 +33,12 @@ func (h DefaultHandler) SubscriptionConfirmation(ctx context.Context, event *Sub
 	return event.Confirm(ctx)
 }
 
+// SubscriptionConfirmation confirms the subscription.
+func (h DefaultHandler) Notification(_ context.Context, _ *Notification) error {
+	return nil
+}
+
 // UnsubscribeConfirmation does nothing and ignores the event.
-func (h DefaultHandler) UnsubscribeConfirmation(_ context.Context, event *UnsubscribeConfirmation) error {
+func (h DefaultHandler) UnsubscribeConfirmation(_ context.Context, _ *UnsubscribeConfirmation) error {
 	return nil
 }

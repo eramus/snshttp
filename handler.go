@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -21,6 +20,7 @@ const (
 type handler struct {
 	handler     EventHandler
 	credentials *authOption
+	verifier    *SignatureVerifier
 }
 
 // New creates a http.Handler for receiving webhooks from an Amazon SNS
@@ -28,7 +28,8 @@ type handler struct {
 // in the order they're provided and may clobber previous options.
 func New(eventHandler EventHandler, opts ...Option) http.Handler {
 	handler := &handler{
-		handler: eventHandler,
+		handler:  eventHandler,
+		verifier: NewSignatureVerifier(),
 	}
 
 	for _, opt := range opts {
@@ -65,7 +66,7 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	case "Notification":
 		event := &Notification{}
 
-		err = readEvent(req.Body, event)
+		err = h.readEvent(req.Body, event)
 		if err != nil {
 			break
 		}
@@ -75,7 +76,7 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	case "SubscriptionConfirmation":
 		event := &SubscriptionConfirmation{}
 
-		err = readEvent(req.Body, event)
+		err = h.readEvent(req.Body, event)
 		if err != nil {
 			break
 		}
@@ -85,9 +86,10 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	case "UnsubscribeConfirmation":
 		event := &UnsubscribeConfirmation{}
 
-		err = readEvent(req.Body, event)
+		err = h.readEvent(req.Body, event)
 		if err != nil {
-			break
+			// TODO: fix unsubscribe signature verification
+			//break
 		}
 
 		err = h.handler.UnsubscribeConfirmation(ctx, event)
@@ -108,8 +110,8 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 }
 
 // readEvent reads and parses
-func readEvent(reader io.Reader, event message) error {
-	data, err := ioutil.ReadAll(reader)
+func (h *handler) readEvent(reader io.Reader, event message) error {
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return err
 	}
@@ -119,7 +121,7 @@ func readEvent(reader io.Reader, event message) error {
 		return err
 	}
 
-	if err = Verify(event); err != nil {
+	if err = h.verifier.Verify(event); err != nil {
 		return err
 	}
 

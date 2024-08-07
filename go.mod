@@ -1,1 +1,1 @@
-module github.com/kenjenkins/snshttp
+module github.com/eramus/snshttp
