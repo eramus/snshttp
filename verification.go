@@ -6,14 +6,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sync"
 )
 
-var hostPattern = regexp.MustCompile(`^sns\.[a-zA-Z0-9\-]{3,}\.amazonaws\.com(\.cn)?$`)
+var defaultPattern = `^sns\.[a-zA-Z0-9\-]{3,}\.amazonaws\.com(\.cn)?$`
 
 // Cache the most recently seen certificate.
 var certCache = make(map[string]*x509.Certificate)
@@ -26,7 +26,39 @@ type message interface {
 	SigningString() string
 }
 
-func getCertificate(signingCertURL string) (*x509.Certificate, error) {
+type verifierOption struct {
+	requireTLS bool
+	certHost   string
+}
+
+func WithCustomVerifier(requireTLS bool, certHost string) Option {
+	return &verifierOption{
+		requireTLS: requireTLS,
+		certHost:   certHost,
+	}
+}
+
+func (opt *verifierOption) apply(handler *handler) {
+	handler.verifier.requireTLS = opt.requireTLS
+
+	if len(opt.certHost) > 0 {
+		handler.verifier.certHostPattern = regexp.MustCompile(opt.certHost)
+	}
+}
+
+type SignatureVerifier struct {
+	requireTLS      bool
+	certHostPattern *regexp.Regexp
+}
+
+func NewSignatureVerifier() *SignatureVerifier {
+	return &SignatureVerifier{
+		requireTLS:      true,
+		certHostPattern: regexp.MustCompile(defaultPattern),
+	}
+}
+
+func (sg *SignatureVerifier) getCertificate(signingCertURL string) (*x509.Certificate, error) {
 	// Check for a cached certificate first.
 	certCacheMutex.RLock()
 	cert, hit := certCache[signingCertURL]
@@ -45,7 +77,7 @@ func getCertificate(signingCertURL string) (*x509.Certificate, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -71,16 +103,16 @@ func getCertificate(signingCertURL string) (*x509.Certificate, error) {
 
 // Verifies that the certificate URL is using https and corresponds to an
 // Amazon AWS domain.
-func verifyCertURL(signingCertURL string) error {
+func (sg *SignatureVerifier) verifyCertURL(signingCertURL string) error {
 	certURL, err := url.Parse(signingCertURL)
 	if err != nil {
 		return err
 	}
 
-	if certURL.Scheme != "https" {
+	if sg.requireTLS && certURL.Scheme != "https" {
 		return errors.New("certificate URL is not using https")
 	}
-	if !hostPattern.Match([]byte(certURL.Host)) {
+	if !sg.certHostPattern.Match([]byte(certURL.Host)) {
 		return errors.New("certificate is located on an invalid domain")
 	}
 
@@ -88,14 +120,14 @@ func verifyCertURL(signingCertURL string) error {
 }
 
 // Verifies that a payload came from SNS.
-func Verify(m message) error {
+func (sg *SignatureVerifier) Verify(m message) error {
 	version := m.getSignatureVersion()
 	if version != "1" {
 		return fmt.Errorf("unsupported signature version %q", version)
 	}
 
 	signingCertURL := m.getSigningCertURL()
-	if err := verifyCertURL(signingCertURL); err != nil {
+	if err := sg.verifyCertURL(signingCertURL); err != nil {
 		return err
 	}
 
@@ -104,7 +136,7 @@ func Verify(m message) error {
 		return err
 	}
 
-	cert, err := getCertificate(signingCertURL)
+	cert, err := sg.getCertificate(signingCertURL)
 	if err != nil {
 		return err
 	}
