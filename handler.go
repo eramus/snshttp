@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -101,6 +102,7 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	if err != nil {
+		log.Print("verify err:", err)
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
